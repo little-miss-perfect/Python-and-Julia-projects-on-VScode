@@ -1,0 +1,4 @@
+in this folder:
+
+-type "cmd" in the search box
+-in the terminal, type "jupyter lab"
