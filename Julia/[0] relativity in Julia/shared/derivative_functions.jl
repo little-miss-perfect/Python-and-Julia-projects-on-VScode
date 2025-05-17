@@ -56,7 +56,7 @@ function m1(df::DerivativeFunctions, x, n, m, R, R1, P, Ms, Mb)
                  kappa * m * (x^2) * (-df.rho + P) +
                  sum1 + sum4))
     else  # here "P=0"
-        return coeff *
+        return coeff1 *
                (sum1 +
                 coeff3 * sum2 +
                 coeff2 *
@@ -77,6 +77,9 @@ end
 
 function R2(df::DerivativeFunctions, x, n, m, R, R1, P, Ms, Mb)
 
+    m1_val = m1(df, x, n, m, R, R1, P, Ms, Mb)
+    n1_val = n1(df, x, n, m, R, R1, P, Ms, Mb)
+
     kappa = 8 * π
 
     sum1 = 2 * df.f(R) - R * df.f1(R)
@@ -85,10 +88,6 @@ function R2(df::DerivativeFunctions, x, n, m, R, R1, P, Ms, Mb)
 
     coeff1 = 1 / (3 * df.f2(R))
     
-    m1_val = m1(df, x, n, m, R, R1, P, Ms, Mb)
-    n1_val = n1(df, x, n, m, R, R1, P, Ms, Mb)
-    
-
     if x == 0  # defined on page "3" of the article
         return (sum1 + kappa * df.T) / (9 * df.f2(R))
 
@@ -136,6 +135,23 @@ function DMb(df::DerivativeFunctions, x, n, m, R, R1, P, Ms, Mb)
     return DMs(df, x, n, m, R, R1, P, Ms, Mb) * df.xrho  # this definition is given in the original Fortran program
 end
 
+function F!(du, u, p, x)
+    # unpack the state vector once
+    n, m, R, R1, P, Ms, Mb = u
+
+    # write each derivative in-place
+    du[1] = n1(p, x, n, m, R, R1, P, Ms, Mb)
+    du[2] = m1(p, x, n, m, R, R1, P, Ms, Mb)
+    du[3] = DR(p, x, n, m, R, R1, P, Ms, Mb)
+    du[4] = R2(p, x, n, m, R, R1, P, Ms, Mb)
+    du[5] = DP(p, x, n, m, R, R1, P, Ms, Mb)
+    du[6] = DMs(p, x, n, m, R, R1, P, Ms, Mb)
+    du[7] = DMb(p, x, n, m, R, R1, P, Ms, Mb)
+
+    return nothing
+end
+
+#=
 function F(df::DerivativeFunctions, x, r)
     n   = r[1]
     m   = r[2]
@@ -168,5 +184,6 @@ function G!(df::DerivativeFunctions, u, r)
     factor = (1 - u)^(-2)
     return factor * F(df, x, r)
 end
+=#
 
-end
+end  # to end the module

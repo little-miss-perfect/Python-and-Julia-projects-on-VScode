@@ -1,6 +1,7 @@
 using Plots
 using DifferentialEquations
-using DiffEqDiffTools
+using DiffEqDiffTools       # does this help?
+using BoundaryValueDiffEq   # does this help?
 
 # import/include our files using paths relative to the directory "main.jl"
 include(joinpath(@__DIR__, "scenarios", "lambda_L_L_M", "variables.jl"))
@@ -41,7 +42,7 @@ function dVdR_func(R)
 end
 
 # now we can plot the previous function as
-# plot(dVdR_func, -1, 10, label="Potential dV/dR") |> display  # we plot within this interval because we already found that for all cases, the "main behaviour" lies here
+plot(dVdR_func, -1, 10, label="Potential dV/dR") |> display  # we plot within this interval because we already found that for all cases, the "main behaviour" lies here
 
 # then we look for roots of the potential's derivative.
 # this will tell us what value "R" (the solution of "R2") approaches
@@ -55,11 +56,10 @@ println("Found extrema at R =", found_roots)
 #=
 function solve_ivp()
 
-
     # the function "F!" is the recommended parameter for "ODEProblem"
     prob = ODEProblem(DerivativeFunctionsModule.F!, r0, (1e-6, 1e7), df)
     # maybe use "PFRK87" like in our homework. but if not, try using "Rodas5" (its documentation says it's used for stiff problems)
-    sol = solve(prob, Rodas5(), adaptive=false, dt = 0.1, abstol=1e-8, reltol=1e-6)  # as with problems from our homework, the first four parameters are the same. here, we add the last two parameters for better accuracy (as with the working Python code); once we fix the problem :(
+    sol = solve(prob, Rodas5(), adaptive=true, dt = 0.1, abstol=1e-8, reltol=1e-6)  # as with problems from our homework, the first four parameters are the same. here, we add the last two parameters for better accuracy (as with the working Python code); once we fix the problem :(
     
     #this modification looks more like what we've been using in our homework
     sol_dep = [u[3] for u in sol.u]
@@ -71,30 +71,40 @@ function solve_ivp()
 end
 
 solve_ivp()
-
 =#
 
 function solve_ivp()
-    # 1) Wrap F! in an ODEFunction with FD Jacobian
-    ode_f = ODEFunction(DerivativeFunctionsModule.F!, jac=DiffEqDiffTools.finite_difference_jacobian)
-
-    # 3) Build and solve with a stiff Rosenbrock method, disabling AD
-    prob = ODEProblem(ode_f, r0, (1e-6, 1e7), df)
-    sol  = solve(prob,
-                 Rodas5(autodiff=false),    # force finite-difference Jacobian
-                 abstol=1e-8,
-                 reltol=1e-6)
-
-    # 4) Plot R(r) = sol.u[i][3] versus sol.t
-    sol_R = getindex.(sol.u, 3)
-    plot(sol.t, sol_R;
-         xlabel="r",
-         ylabel="R(r)",
-         title="f(R) integration",
-         legend=false)
-end
-
-solve_ivp()
+    prob = ODEProblem(DerivativeFunctionsModule.F!,
+                      r0,
+                      (1e-6, 1e7),
+                      df)
+  
+    sol = nothing
+    try
+      sol = solve(prob,
+                  Rodas5(),
+                  adaptive = true,
+                  abstol   = 1e-8,
+                  reltol   = 1e-6)
+    catch e
+      # When Rodas5() aborts due to dt < ε, the exception object
+      # has a field `e.sol` containing the partial solution.
+      sol = e.sol
+    end
+  
+    # Now you can inspect sol.t and sol.u just as if it had finished:
+    xs = sol.t
+    Rs = [u[3] for u in sol.u]
+    println("Integrated up to x = ", xs[end])
+    plot(xs, Rs,
+         xlabel="x", ylabel="R(x)",
+         title="Partial solution up to abort",
+         xscale = :log10) |> display
+    
+  end
+  
+  solve_ivp()
+  
 
 # Print test variable from Variables module to confirm proper import.
 println(Variables.test_variable)
